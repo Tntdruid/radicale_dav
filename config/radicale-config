@@ -46,7 +46,7 @@ predefined_collections = {
         "D:displayname": "Contacts",
         "tag": "VADDRESSBOOK"
     }
-}
+ }
 
 [logging]
 level = info

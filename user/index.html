@@ -41,10 +41,18 @@ $escape = static function (string $value): string {
       <tr><td><strong>Address book URL</strong></td><td><code><?= $escape($base_url . '/' . $mailbox . '/addressbook/') ?></code></td></tr>
       <tr><td><strong>Username</strong></td><td><code><?= $escape($mailbox) ?></code></td></tr>
     </table>
-     <p><a href="<?= $escape($base_url . '/') ?>" target="_blank" rel="noopener">Open calendar manager</a></p>
-     <p><em>Use the calendar manager to share a calendar with another
-       authenticated mailbox. Shares are read-only by default, and the
-       recipient must accept the share before it appears.</em></p>
+    <p><a href="<?= $escape($base_url . '/.web/') ?>" target="_blank" rel="noopener">Open calendar manager</a></p>
+
+    <h3>Share a calendar</h3>
+    <ol>
+      <li>Open the calendar manager and sign in with your mailbox address and mail password.</li>
+      <li>Open your calendar's sharing controls and add the other mailbox address.</li>
+      <li>Use the exact mailbox address on your domain and save the share.</li>
+      <li>The other user opens the manager, selects <strong>Incoming Shares</strong>, and accepts the share.</li>
+      <li>They enable and unhide the share if those options are shown, then refresh their calendar list.</li>
+    </ol>
+    <p><em>Shares are read-only by default. Both users must use their mailbox
+       addresses and mail passwords; DirectAdmin passwords are not used.</em></p>
     <p><em>Most apps only need the server address plus your username/
        password -- they'll discover the calendar and address book
        automatically (via /.well-known/caldav and /.well-known/carddav).
