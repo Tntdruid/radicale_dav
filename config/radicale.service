@@ -1,0 +1,17 @@
+[Unit]
+Description=Radicale CalDAV/CardDAV server
+After=network.target dovecot.service
+
+[Service]
+Type=simple
+User=radicale
+Group=radicale
+# Dovecot's auth-client socket is normally only readable by root/dovecot;
+# add the 'radicale' user to whatever group owns that socket, e.g.:
+#   usermod -aG dovecot radicale
+SupplementaryGroups=dovecot
+ExecStart=/usr/bin/env python3 -m radicale --config /etc/radicale/config
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

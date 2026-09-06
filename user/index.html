@@ -1,0 +1,56 @@
+#!/usr/local/bin/php
+<?php
+/**
+ * /usr/local/directadmin/plugins/radicale_dav/user/index.html
+ *
+ * No server-side account logic -- auth is entirely delegated to
+ * Dovecot. This page just turns "your mailbox address" into the right
+ * CalDAV/CardDAV URLs, using that same domain's own /caldav path (see
+ * config/apache-vhost-template-snippet.conf) -- so it works for every
+ * domain on the server with nothing to configure per-installation.
+ * Must be chmod 755.
+ */
+?>
+<div style="max-width:640px">
+  <h2>Calendar &amp; Contacts (CalDAV/CardDAV)</h2>
+
+  <p>Your calendar and address book use the same login as your email
+     account (mailbox address + mail password) -- there's nothing to
+     set up here. Enter your mailbox address below to get your URLs:</p>
+
+  <p>
+    <input type="email" id="mailbox" placeholder="alice@example.com" style="width:260px">
+    <button type="button" onclick="showUrls()">Show my URLs</button>
+  </p>
+
+  <div id="result" style="display:none">
+    <table cellpadding="4">
+      <tr><td><strong>Server address</strong></td><td><code id="principal"></code></td></tr>
+      <tr><td><strong>Calendar URL</strong></td><td><code id="calendar"></code></td></tr>
+      <tr><td><strong>Address book URL</strong></td><td><code id="contacts"></code></td></tr>
+      <tr><td><strong>Username</strong></td><td><code id="uname"></code></td></tr>
+    </table>
+    <p><em>Most apps only need the server address plus your username/
+       password -- they'll discover the calendar and address book
+       automatically (via /.well-known/caldav and /.well-known/carddav).
+       First connection creates them if they don't exist yet.</em></p>
+  </div>
+
+  <script>
+  function showUrls() {
+    var mailbox = document.getElementById('mailbox').value.trim();
+    var at = mailbox.indexOf('@');
+    if (!mailbox || at === -1 || at === mailbox.length - 1) {
+      alert('Enter your full mailbox address, e.g. alice@example.com');
+      return;
+    }
+    var domain = mailbox.substring(at + 1);
+    var base = 'https://' + domain + '/caldav';
+    document.getElementById('principal').textContent = base + '/' + mailbox + '/';
+    document.getElementById('calendar').textContent  = base + '/' + mailbox + '/calendar/';
+    document.getElementById('contacts').textContent  = base + '/' + mailbox + '/addressbook/';
+    document.getElementById('uname').textContent     = mailbox;
+    document.getElementById('result').style.display = 'block';
+  }
+  </script>
+</div>

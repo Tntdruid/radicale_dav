@@ -1,0 +1,44 @@
+# /etc/radicale/config
+#
+# Authenticates CalDAV/CardDAV logins directly against the same Dovecot
+# instance DirectAdmin already uses for mail. Each mailbox
+# (user@domain.tld) becomes its own Radicale principal at /user@domain.tld/
+# with the same password as their email account. No password is stored
+# or managed by this plugin at all.
+
+[server]
+hosts = 127.0.0.1:5232
+
+[auth]
+type = dovecot
+# Default Dovecot auth-client socket. Confirm the real path on your box
+# with: doveconf -a | grep -A2 'service auth '  (look for the "client"
+# unix_listener under it). DA-managed Dovecot commonly uses this path,
+# but versions/distros vary.
+dovecot_connection_type = AF_UNIX
+dovecot_socket = /var/run/dovecot/auth-client
+# The radicale service user must be able to read/write that socket --
+# usually by adding it to Dovecot's socket group. See README.md.
+
+[rights]
+# Each mailbox can only see its own collections at /user@domain.tld/.
+type = owner_only
+
+[storage]
+filesystem_folder = /var/lib/radicale/collections
+# Auto-create a default calendar + address book the first time each
+# mailbox connects -- no provisioning hook needed.
+predefined_collections = {
+    "calendar": {
+        "D:displayname": "Calendar",
+        "C:supported-calendar-component-set": "VEVENT,VTODO,VJOURNAL",
+        "tag": "VCALENDAR"
+    },
+    "addressbook": {
+        "D:displayname": "Contacts",
+        "tag": "VADDRESSBOOK"
+    }
+}
+
+[logging]
+level = info
