@@ -1,26 +1,3 @@
-#!/usr/local/bin/php
-<?php
-/**
- * /usr/local/directadmin/plugins/radicale_dav/user/index.html
- *
- * No server-side account logic -- auth is entirely delegated to
- * Dovecot. This page turns "your mailbox address" into the right
- * CalDAV/CardDAV URLs with a normal PHP form, using that same domain's
- * own /caldav path (see config/apache-vhost-template-snippet.conf).
- * Must be chmod 755.
- */
-
-$request_data = array_merge($_GET, $_POST);
-$mailbox = trim((string) ($request_data['mailbox'] ?? ''));
-$valid_mailbox = $mailbox !== '' && filter_var($mailbox, FILTER_VALIDATE_EMAIL) !== false;
-$domain = $valid_mailbox ? substr($mailbox, strrpos($mailbox, '@') + 1) : '';
-$base_url = $valid_mailbox ? 'https://' . $domain . '/caldav' : '';
-$calendar_url = $valid_mailbox ? $base_url . '/' . $mailbox . '/calendar/' : '';
-$addressbook_url = $valid_mailbox ? $base_url . '/' . $mailbox . '/addressbook/' : '';
-$escape = static function (string $value): string {
-    return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-};
-?>
 <div style="max-width:640px">
   <h2>Calendar &amp; Contacts (CalDAV/CardDAV)</h2>
 
@@ -28,40 +5,60 @@ $escape = static function (string $value): string {
      account (mailbox address + mail password). Enter your mailbox address
      below to get your URLs:</p>
 
-  <form method="get">
+    <form id="radicale-url-form">
     <p>
       <label for="mailbox">Mailbox address</label><br>
-      <input type="email" id="mailbox" name="mailbox" value="<?= $escape($mailbox) ?>" placeholder="alice@example.com" required style="width:260px">
+        <input type="email" id="mailbox" name="mailbox" placeholder="alice@example.com" required style="width:260px">
       <button type="submit">Show my URLs</button>
     </p>
   </form>
 
-<?php if ($valid_mailbox): ?>
-  <div>
-    <table cellpadding="4">
-      <tr><td><strong>Server address</strong></td><td><code><?= $escape($base_url) ?></code></td></tr>
-      <tr><td><strong>Calendar URL</strong></td><td><a href="<?= $escape($calendar_url) ?>"><code><?= $escape($calendar_url) ?></code></a></td></tr>
-      <tr><td><strong>Address book URL</strong></td><td><a href="<?= $escape($addressbook_url) ?>"><code><?= $escape($addressbook_url) ?></code></a></td></tr>
-      <tr><td><strong>Username</strong></td><td><code><?= $escape($mailbox) ?></code></td></tr>
-    </table>
-    <p><a href="<?= $escape($base_url . '/.web/') ?>" target="_blank" rel="noopener">Open calendar manager</a></p>
+  <p id="radicale-error" role="alert" hidden>Enter a valid mailbox address, for example alice@example.com.</p>
+    <div id="radicale-results" hidden>
+      <table cellpadding="4">
+        <tr><td><strong>Server address</strong></td><td><code id="server-url"></code></td></tr>
+        <tr><td><strong>Calendar URL</strong></td><td><a id="calendar-url"><code></code></a></td></tr>
+        <tr><td><strong>Address book URL</strong></td><td><a id="addressbook-url"><code></code></a></td></tr>
+        <tr><td><strong>Username</strong></td><td><code id="username"></code></td></tr>
+      </table>
+      <p><a id="manager-url" target="_blank" rel="noopener">Open calendar manager</a></p>
+    </div>
 
-    <h3>Share a calendar</h3>
-    <ol>
-      <li>Open the calendar manager and sign in with your mailbox address and mail password.</li>
-      <li>Open your calendar's sharing controls and add the other mailbox address.</li>
-      <li>Use the exact mailbox address on your domain and save the share.</li>
-      <li>The other user opens the manager, selects <strong>Incoming Shares</strong>, and accepts the share.</li>
-      <li>They enable and unhide the share if those options are shown, then refresh their calendar list.</li>
-    </ol>
-    <p><em>Shares are read-only by default. Both users must use their mailbox
-       addresses and mail passwords; DirectAdmin passwords are not used.</em></p>
-    <p><em>Most apps only need the server address plus your username/
-       password -- they'll discover the calendar and address book
-       automatically (via /.well-known/caldav and /.well-known/carddav).
-       First connection creates them if they don't exist yet.</em></p>
-  </div>
-<?php elseif ($mailbox !== ''): ?>
-  <p role="alert">Enter a valid mailbox address, for example alice@example.com.</p>
-<?php endif; ?>
+    <script>
+    (function () {
+      var form = document.getElementById('radicale-url-form');
+      var mailboxInput = document.getElementById('mailbox');
+      var results = document.getElementById('radicale-results');
+      var error = document.getElementById('radicale-error');
+
+      form.addEventListener('submit', function (event) {
+        event.preventDefault();
+
+        var mailbox = mailboxInput.value.trim();
+        var at = mailbox.lastIndexOf('@');
+        var domain = at > 0 ? mailbox.slice(at + 1).toLowerCase() : '';
+        var valid = mailboxInput.checkValidity() && domain.indexOf('.') > 0 && domain.indexOf('.') < domain.length - 1;
+
+        if (!valid) {
+          results.hidden = true;
+          error.hidden = false;
+          return;
+        }
+
+        var baseUrl = 'https://' + domain + '/caldav';
+        var calendarUrl = baseUrl + '/' + mailbox + '/calendar/';
+        var addressbookUrl = baseUrl + '/' + mailbox + '/addressbook/';
+
+        document.getElementById('server-url').textContent = baseUrl;
+        document.getElementById('calendar-url').href = calendarUrl;
+        document.getElementById('calendar-url').firstChild.textContent = calendarUrl;
+        document.getElementById('addressbook-url').href = addressbookUrl;
+        document.getElementById('addressbook-url').firstChild.textContent = addressbookUrl;
+        document.getElementById('username').textContent = mailbox;
+        document.getElementById('manager-url').href = baseUrl + '/.web/';
+        error.hidden = true;
+        results.hidden = false;
+      });
+    }());
+    </script>
 </div>
