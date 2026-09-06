@@ -4,101 +4,53 @@
  * /usr/local/directadmin/plugins/radicale_dav/user/index.html
  *
  * No server-side account logic -- auth is entirely delegated to
- * Dovecot. This page just turns "your mailbox address" into the right
- * CalDAV/CardDAV URLs, using that same domain's own /caldav path (see
- * config/apache-vhost-template-snippet.conf) -- so it works for every
- * domain on the server with nothing to configure per-installation.
+ * Dovecot. This page turns "your mailbox address" into the right
+ * CalDAV/CardDAV URLs with a normal PHP form, using that same domain's
+ * own /caldav path (see config/apache-vhost-template-snippet.conf).
  * Must be chmod 755.
  */
+
+$mailbox = trim((string) ($_GET['mailbox'] ?? ''));
+$valid_mailbox = $mailbox !== '' && filter_var($mailbox, FILTER_VALIDATE_EMAIL) !== false;
+$domain = $valid_mailbox ? substr($mailbox, strrpos($mailbox, '@') + 1) : '';
+$base_url = $valid_mailbox ? 'https://' . $domain . '/caldav' : '';
+$escape = static function (string $value): string {
+    return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+};
 ?>
 <div style="max-width:640px">
   <h2>Calendar &amp; Contacts (CalDAV/CardDAV)</h2>
 
   <p>Your calendar and address book use the same login as your email
-     account (mailbox address + mail password) -- there's nothing to
-     set up here. Enter your mailbox address below to get your URLs:</p>
+     account (mailbox address + mail password). Enter your mailbox address
+     below to get your URLs:</p>
 
-  <p>
-    <input type="email" id="mailbox" placeholder="alice@example.com" style="width:260px">
-    <button type="button" onclick="showUrls()">Show my URLs</button>
-  </p>
+  <form method="get">
+    <p>
+      <label for="mailbox">Mailbox address</label><br>
+      <input type="email" id="mailbox" name="mailbox" value="<?= $escape($mailbox) ?>" placeholder="alice@example.com" required style="width:260px">
+      <button type="submit">Show my URLs</button>
+    </p>
+  </form>
 
-  <div id="result" style="display:none">
+<?php if ($valid_mailbox): ?>
+  <div>
     <table cellpadding="4">
-      <tr><td><strong>Server address</strong></td><td><code id="principal"></code> <button type="button" onclick="copyValue('principal')">Copy</button> <button type="button" onclick="shareValue('principal', 'CalDAV/CardDAV server')">Share</button></td></tr>
-      <tr><td><strong>Calendar URL</strong></td><td><code id="calendar"></code> <button type="button" onclick="copyValue('calendar')">Copy</button> <button type="button" onclick="shareValue('calendar', 'Calendar URL')">Share</button></td></tr>
-      <tr><td><strong>Address book URL</strong></td><td><code id="contacts"></code> <button type="button" onclick="copyValue('contacts')">Copy</button> <button type="button" onclick="shareValue('contacts', 'Address book URL')">Share</button></td></tr>
-      <tr><td><strong>Username</strong></td><td><code id="uname"></code> <button type="button" onclick="copyValue('uname')">Copy</button></td></tr>
+      <tr><td><strong>Server address</strong></td><td><code><?= $escape($base_url) ?></code></td></tr>
+      <tr><td><strong>Calendar URL</strong></td><td><code><?= $escape($base_url . '/' . $mailbox . '/calendar/') ?></code></td></tr>
+      <tr><td><strong>Address book URL</strong></td><td><code><?= $escape($base_url . '/' . $mailbox . '/addressbook/') ?></code></td></tr>
+      <tr><td><strong>Username</strong></td><td><code><?= $escape($mailbox) ?></code></td></tr>
     </table>
-    <p id="share-status" role="status" aria-live="polite"></p>
+     <p><a href="<?= $escape($base_url . '/') ?>" target="_blank" rel="noopener">Open calendar manager</a></p>
+     <p><em>Use the calendar manager to share a calendar with another
+       authenticated mailbox. Shares are read-only by default, and the
+       recipient must accept the share before it appears.</em></p>
     <p><em>Most apps only need the server address plus your username/
        password -- they'll discover the calendar and address book
        automatically (via /.well-known/caldav and /.well-known/carddav).
        First connection creates them if they don't exist yet.</em></p>
   </div>
-
-  <script>
-  function showUrls() {
-    var mailbox = document.getElementById('mailbox').value.trim();
-    var at = mailbox.indexOf('@');
-    if (!mailbox || at === -1 || at === mailbox.length - 1) {
-      alert('Enter your full mailbox address, e.g. alice@example.com');
-      return;
-    }
-    var domain = mailbox.substring(at + 1);
-    var base = 'https://' + domain + '/caldav';
-    document.getElementById('principal').textContent = base + '/' + mailbox + '/';
-    document.getElementById('calendar').textContent  = base + '/' + mailbox + '/calendar/';
-    document.getElementById('contacts').textContent  = base + '/' + mailbox + '/addressbook/';
-    document.getElementById('uname').textContent     = mailbox;
-    document.getElementById('result').style.display = 'block';
-  }
-
-  function getValue(id) {
-    return document.getElementById(id).textContent;
-  }
-
-  function setStatus(message) {
-    document.getElementById('share-status').textContent = message;
-  }
-
-  function copyValue(id) {
-    var value = getValue(id);
-    if (navigator.clipboard && window.isSecureContext) {
-      navigator.clipboard.writeText(value).then(function() {
-        setStatus('Copied to clipboard.');
-      }).catch(function() {
-        setStatus('Copy failed. Select the value and copy it manually.');
-      });
-      return;
-    }
-
-    var textArea = document.createElement('textarea');
-    textArea.value = value;
-    textArea.setAttribute('readonly', '');
-    textArea.style.position = 'fixed';
-    textArea.style.opacity = '0';
-    document.body.appendChild(textArea);
-    textArea.select();
-    var copied = document.execCommand('copy');
-    document.body.removeChild(textArea);
-    setStatus(copied ? 'Copied to clipboard.' : 'Copy failed. Select the value and copy it manually.');
-  }
-
-  function shareValue(id, title) {
-    var value = getValue(id);
-    if (!navigator.share) {
-      copyValue(id);
-      return;
-    }
-
-    navigator.share({title: title, text: value, url: value}).then(function() {
-      setStatus('Share dialog opened.');
-    }).catch(function(error) {
-      if (error.name !== 'AbortError') {
-        setStatus('Sharing failed.');
-      }
-    });
-  }
-  </script>
+<?php elseif ($mailbox !== ''): ?>
+  <p role="alert">Enter a valid mailbox address, for example alice@example.com.</p>
+<?php endif; ?>
 </div>

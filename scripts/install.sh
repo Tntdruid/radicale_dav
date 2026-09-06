@@ -11,6 +11,7 @@ PLUGIN_DIR=/usr/local/directadmin/plugins/radicale_dav
 DA_CUSTOM=/usr/local/directadmin/scripts/custom
 
 echo "==> Setting permissions"
+chmod 755 "$PLUGIN_DIR/admin/index.html"
 chmod 755 "$PLUGIN_DIR/user/index.html"
 chmod 644 "$PLUGIN_DIR/hooks/"*.html
 chmod 755 "$PLUGIN_DIR/da-hooks/"*.sh

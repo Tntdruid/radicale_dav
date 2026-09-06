@@ -21,10 +21,14 @@ connects with valid Dovecot credentials.
   existing domain and every domain created afterwards, automatically.
   `/.well-known/caldav` and `/.well-known/carddav` are also redirected
   to `/caldav/`, so clients that only need "domain.tld" find it themselves.
-- The plugin's user-level GUI page is a URL builder — type your mailbox
-  address, get your CalDAV/CardDAV URLs (derived from the domain part
-  of the address you type — nothing to configure). No form posts, no
+- The plugin's user-level GUI page is a no-JavaScript URL builder — submit
+  your mailbox address and get your CalDAV/CardDAV URLs (derived from the
+  domain part of the address you submit — nothing to configure). No
   passwords touch this plugin at all.
+- The page also links to Radicale's built-in calendar manager. With Radicale
+  3.7 or newer, users can create read-only map shares for other authenticated
+  mailboxes without giving their password to this plugin; the recipient must
+  accept the share before it becomes visible.
 - One optional DA hook, `email_destroy_post.sh`, deletes the leftover
   calendar/contacts files when a mailbox is deleted (not required for
   security — Dovecot no longer authenticating the mailbox is what
@@ -57,6 +61,9 @@ connects with valid Dovecot credentials.
    systemctl daemon-reload
    systemctl enable --now radicale
    ```
+  Radicale 3.7 or newer is required for the built-in sharing manager.
+  After changing `/etc/radicale/config`, restart it with
+  `systemctl restart radicale`.
 6. Test dovecot auth directly, hitting Radicale locally, before wiring
    up Apache at all:
    ```
@@ -73,7 +80,8 @@ connects with valid Dovecot credentials.
 8. Copy this whole directory to
    `/usr/local/directadmin/plugins/radicale_dav/`.
 9. Run `./scripts/install.sh` as root — sets permissions and symlinks
-   the optional cleanup hook.
+  the optional cleanup hook. This also makes both DirectAdmin entry
+  points (`admin/index.html` and `user/index.html`) executable.
 10. Confirm the "Calendar & Contacts" tab appears for a test DA user,
     and that entering a real mailbox address there produces a URL a
     CalDAV client (or `curl -u`) can actually authenticate against:

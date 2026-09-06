@@ -24,6 +24,14 @@ dovecot_socket = /var/run/dovecot/auth-client
 # Each mailbox can only see its own collections at /user@domain.tld/.
 type = owner_only
 
+[sharing]
+# Use Radicale's built-in sharing manager. The share recipient must still
+# authenticate with Dovecot before the shared collection becomes available.
+type = files
+collection_by_map = True
+permit_create_map = True
+default_permissions_create_map = r
+
 [storage]
 filesystem_folder = /var/lib/radicale/collections
 # Auto-create a default calendar + address book the first time each
