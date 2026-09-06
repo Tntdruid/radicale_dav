@@ -25,11 +25,12 @@
 
   <div id="result" style="display:none">
     <table cellpadding="4">
-      <tr><td><strong>Server address</strong></td><td><code id="principal"></code></td></tr>
-      <tr><td><strong>Calendar URL</strong></td><td><code id="calendar"></code></td></tr>
-      <tr><td><strong>Address book URL</strong></td><td><code id="contacts"></code></td></tr>
-      <tr><td><strong>Username</strong></td><td><code id="uname"></code></td></tr>
+      <tr><td><strong>Server address</strong></td><td><code id="principal"></code> <button type="button" onclick="copyValue('principal')">Copy</button> <button type="button" onclick="shareValue('principal', 'CalDAV/CardDAV server')">Share</button></td></tr>
+      <tr><td><strong>Calendar URL</strong></td><td><code id="calendar"></code> <button type="button" onclick="copyValue('calendar')">Copy</button> <button type="button" onclick="shareValue('calendar', 'Calendar URL')">Share</button></td></tr>
+      <tr><td><strong>Address book URL</strong></td><td><code id="contacts"></code> <button type="button" onclick="copyValue('contacts')">Copy</button> <button type="button" onclick="shareValue('contacts', 'Address book URL')">Share</button></td></tr>
+      <tr><td><strong>Username</strong></td><td><code id="uname"></code> <button type="button" onclick="copyValue('uname')">Copy</button></td></tr>
     </table>
+    <p id="share-status" role="status" aria-live="polite"></p>
     <p><em>Most apps only need the server address plus your username/
        password -- they'll discover the calendar and address book
        automatically (via /.well-known/caldav and /.well-known/carddav).
@@ -51,6 +52,53 @@
     document.getElementById('contacts').textContent  = base + '/' + mailbox + '/addressbook/';
     document.getElementById('uname').textContent     = mailbox;
     document.getElementById('result').style.display = 'block';
+  }
+
+  function getValue(id) {
+    return document.getElementById(id).textContent;
+  }
+
+  function setStatus(message) {
+    document.getElementById('share-status').textContent = message;
+  }
+
+  function copyValue(id) {
+    var value = getValue(id);
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(value).then(function() {
+        setStatus('Copied to clipboard.');
+      }).catch(function() {
+        setStatus('Copy failed. Select the value and copy it manually.');
+      });
+      return;
+    }
+
+    var textArea = document.createElement('textarea');
+    textArea.value = value;
+    textArea.setAttribute('readonly', '');
+    textArea.style.position = 'fixed';
+    textArea.style.opacity = '0';
+    document.body.appendChild(textArea);
+    textArea.select();
+    var copied = document.execCommand('copy');
+    document.body.removeChild(textArea);
+    setStatus(copied ? 'Copied to clipboard.' : 'Copy failed. Select the value and copy it manually.');
+  }
+
+  function shareValue(id, title) {
+    var value = getValue(id);
+    if (!navigator.share) {
+      copyValue(id);
+      return;
+    }
+
+    navigator.share({title: title, text: value, url: value}).then(function() {
+      setStatus('Share dialog opened.');
+    }).catch(function(error) {
+      if (error.name !== 'AbortError') {
+        setStatus('Sharing failed.');
+      }
+    });
   }
   </script>
 </div>
