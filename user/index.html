@@ -15,6 +15,8 @@ $mailbox = trim((string) ($request_data['mailbox'] ?? ''));
 $valid_mailbox = $mailbox !== '' && filter_var($mailbox, FILTER_VALIDATE_EMAIL) !== false;
 $domain = $valid_mailbox ? substr($mailbox, strrpos($mailbox, '@') + 1) : '';
 $base_url = $valid_mailbox ? 'https://' . $domain . '/caldav' : '';
+$calendar_url = $valid_mailbox ? $base_url . '/' . $mailbox . '/calendar/' : '';
+$addressbook_url = $valid_mailbox ? $base_url . '/' . $mailbox . '/addressbook/' : '';
 $escape = static function (string $value): string {
     return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 };
@@ -26,7 +28,7 @@ $escape = static function (string $value): string {
      account (mailbox address + mail password). Enter your mailbox address
      below to get your URLs:</p>
 
-  <form method="post">
+  <form method="get">
     <p>
       <label for="mailbox">Mailbox address</label><br>
       <input type="email" id="mailbox" name="mailbox" value="<?= $escape($mailbox) ?>" placeholder="alice@example.com" required style="width:260px">
@@ -38,8 +40,8 @@ $escape = static function (string $value): string {
   <div>
     <table cellpadding="4">
       <tr><td><strong>Server address</strong></td><td><code><?= $escape($base_url) ?></code></td></tr>
-      <tr><td><strong>Calendar URL</strong></td><td><code><?= $escape($base_url . '/' . $mailbox . '/calendar/') ?></code></td></tr>
-      <tr><td><strong>Address book URL</strong></td><td><code><?= $escape($base_url . '/' . $mailbox . '/addressbook/') ?></code></td></tr>
+      <tr><td><strong>Calendar URL</strong></td><td><a href="<?= $escape($calendar_url) ?>"><code><?= $escape($calendar_url) ?></code></a></td></tr>
+      <tr><td><strong>Address book URL</strong></td><td><a href="<?= $escape($addressbook_url) ?>"><code><?= $escape($addressbook_url) ?></code></a></td></tr>
       <tr><td><strong>Username</strong></td><td><code><?= $escape($mailbox) ?></code></td></tr>
     </table>
     <p><a href="<?= $escape($base_url . '/.web/') ?>" target="_blank" rel="noopener">Open calendar manager</a></p>
