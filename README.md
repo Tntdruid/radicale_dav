@@ -70,13 +70,17 @@ connects with valid Dovecot credentials.
    curl -u alice@example.com:mailpassword http://127.0.0.1:5232/alice@example.com/
    ```
    Confirm it returns something other than 401.
-7. **Add `/caldav` to every domain's vhost** — see
-   `config/apache-vhost-template-snippet.conf` for the exact steps:
-   copy DA's `virtual_host2_secure.conf` template into `custom/`, paste
-   the snippet in, then run `./build rewrite_confs` (from
-   `/usr/local/directadmin/custombuild`) and reload Apache. Requires
-   `mod_proxy`, `mod_proxy_http`, `mod_headers` — check with
-   `httpd -M | grep -E 'proxy|headers'`.
+7. **Add `/caldav` and `/carddav` to every domain's vhost** — copy the
+  appropriate files from `config/` into DirectAdmin's custom template
+  directory:
+  - `virtual_host2_secure.conf.CUSTOM.post` for HTTPS vhosts (recommended).
+  - `virtual_host2.conf.CUSTOM.post` only when the HTTP vhost redirects to
+    HTTPS before authentication. Do not expose Basic Auth over plain HTTP.
+
+  Then run `./build rewrite_confs` from
+  `/usr/local/directadmin/custombuild` and reload Apache. Requires
+  `mod_proxy`, `mod_proxy_http`, and `mod_headers` — check with
+  `httpd -M | grep -E 'proxy|headers'`.
 8. Copy this whole directory to
    `/usr/local/directadmin/plugins/radicale_dav/`.
 9. Run `./scripts/install.sh` as root — sets permissions and symlinks
@@ -102,7 +106,8 @@ scripts/install.sh              Run once after copying the plugin into place
 scripts/uninstall.sh            Removes the hook symlink (keeps calendar data)
 config/radicale-config                       /etc/radicale/config using dovecot auth
 config/radicale.service                      Systemd unit (joins the dovecot socket group)
-config/apache-vhost-template-snippet.conf    /caldav proxy block for DA's shared vhost template
+config/virtual_host2_secure.conf.CUSTOM.post HTTPS CalDAV/CardDAV proxy fragment
+config/virtual_host2.conf.CUSTOM.post        HTTP proxy fragment; use only with HTTPS redirect
 ```
 
 ## Things worth double-checking on your system
@@ -111,10 +116,10 @@ config/apache-vhost-template-snippet.conf    /caldav proxy block for DA's shared
   Radicale can't read Dovecot's auth-client socket, every login fails
   with no useful client-side error — check `journalctl -u radicale`
   first.
-- **HTTPS only.** The `/caldav` block only goes in the *secure*
-  (`virtual_host2_secure.conf`) template on purpose — CalDAV/CardDAV
-  send Basic Auth credentials, so a domain without SSL enabled simply
-  won't have `/caldav` reachable. That's intentional.
+- **Use HTTPS for authentication.** CalDAV/CardDAV send Basic Auth
+  credentials. The secure custom template is the recommended deployment;
+  if the HTTP fragment is installed, HTTP must redirect to HTTPS before a
+  client can authenticate.
 - **mod_proxy/mod_headers must be built into Apache** — check with
   `httpd -M | grep -E 'proxy|headers'` before assuming the vhost
   template edit alone is enough.

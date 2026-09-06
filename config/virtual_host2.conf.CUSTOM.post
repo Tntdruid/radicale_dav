@@ -1,0 +1,28 @@
+RedirectMatch ^/carddav$ /carddav/
+
+ProxyPass        /carddav/ http://127.0.0.1:5232/
+ProxyPassReverse /carddav/ http://127.0.0.1:5232/
+
+RequestHeader set X-Script-Name /carddav
+RequestHeader set X-Forwarded-Proto "http"
+RequestHeader set X-Forwarded-Port "80"
+
+<Location "/carddav/">
+    Require all granted
+</Location>
+
+Redirect permanent /.well-known/carddav /carddav/
+RedirectMatch ^/caldav$ /caldav/
+
+ProxyPass        /caldav/ http://127.0.0.1:5232/
+ProxyPassReverse /caldav/ http://127.0.0.1:5232/
+
+RequestHeader set X-Script-Name /caldav
+RequestHeader set X-Forwarded-Proto "http"
+RequestHeader set X-Forwarded-Port "80"
+
+<Location "/caldav/">
+    Require all granted
+</Location>
+
+Redirect permanent /.well-known/caldav /caldav/
