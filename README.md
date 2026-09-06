@@ -108,7 +108,15 @@ config/radicale-config                       /etc/radicale/config using dovecot 
 config/radicale.service                      Systemd unit (joins the dovecot socket group)
 config/virtual_host2_secure.conf.CUSTOM.post HTTPS CalDAV/CardDAV proxy fragment
 config/virtual_host2.conf.CUSTOM.post        HTTP proxy fragment; use only with HTTPS redirect
+lang.php                                      Plugin translations (English and Danish)
 ```
+
+## Languages
+
+The plugin pages use English by default and Danish when DirectAdmin or the
+browser reports a Danish language (`da`, `da-DK`, or `danish`). The menu hooks
+show both English and Danish because DirectAdmin loads those labels as static
+hook text.
 
 ## Things worth double-checking on your system
 

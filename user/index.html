@@ -1,31 +1,44 @@
 #!/usr/local/bin/php
 <?php
-// DirectAdmin executes this .html entry point through the PHP interpreter.
+require_once __DIR__ . '/../lang.php';
+$strings = radicale_language();
+$escape = static function (string $value): string {
+    return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+};
 ?>
 <div style="max-width:640px">
-  <h2>Calendar &amp; Contacts (CalDAV/CardDAV)</h2>
+  <h2><?= $escape($strings['title']) ?></h2>
 
-  <p>Your calendar and address book use the same login as your email
-     account (mailbox address + mail password). Enter your mailbox address
-     below to get your URLs:</p>
+  <p><?= $escape($strings['intro']) ?></p>
 
     <form id="radicale-url-form">
     <p>
-      <label for="mailbox">Mailbox address</label><br>
+      <label for="mailbox"><?= $escape($strings['mailbox']) ?></label><br>
         <input type="email" id="mailbox" name="mailbox" placeholder="alice@example.com" required style="width:260px">
-      <button type="submit">Show my URLs</button>
+      <button type="submit"><?= $escape($strings['submit']) ?></button>
     </p>
   </form>
 
-  <p id="radicale-error" role="alert" hidden>Enter a valid mailbox address, for example alice@example.com.</p>
+  <p id="radicale-error" role="alert" hidden><?= $escape($strings['invalid']) ?></p>
     <div id="radicale-results" hidden>
       <table cellpadding="4">
-        <tr><td><strong>Server address</strong></td><td><code id="server-url"></code></td></tr>
-        <tr><td><strong>Calendar URL</strong></td><td><a id="calendar-url"><code></code></a></td></tr>
-        <tr><td><strong>Address book URL</strong></td><td><a id="addressbook-url"><code></code></a></td></tr>
-        <tr><td><strong>Username</strong></td><td><code id="username"></code></td></tr>
+        <tr><td><strong><?= $escape($strings['server']) ?></strong></td><td><code id="server-url"></code></td></tr>
+        <tr><td><strong><?= $escape($strings['calendar']) ?></strong></td><td><a id="calendar-url"><code></code></a></td></tr>
+        <tr><td><strong><?= $escape($strings['addressbook']) ?></strong></td><td><a id="addressbook-url"><code></code></a></td></tr>
+        <tr><td><strong><?= $escape($strings['username']) ?></strong></td><td><code id="username"></code></td></tr>
       </table>
-      <p><a id="manager-url" target="_blank" rel="noopener">Open calendar manager</a></p>
+      <p><a id="manager-url" target="_blank" rel="noopener"><?= $escape($strings['manager']) ?></a></p>
+
+      <h3><?= $escape($strings['share_title']) ?></h3>
+      <ol>
+        <li><?= $escape($strings['share_1']) ?></li>
+        <li><?= $escape($strings['share_2']) ?></li>
+        <li><?= $escape($strings['share_3']) ?></li>
+        <li><?= $escape($strings['share_4']) ?></li>
+        <li><?= $escape($strings['share_5']) ?></li>
+      </ol>
+      <p><em><?= $escape($strings['share_note']) ?></em></p>
+      <p><em><?= $escape($strings['app_note']) ?></em></p>
     </div>
 
     <script>

@@ -1,27 +1,25 @@
 #!/usr/local/bin/php
 <?php
-/**
- * /usr/local/directadmin/plugins/radicale_dav/admin/index.html
- * Executed by DA at /CMD_PLUGINS_ADMIN/radicale_dav. Must be chmod 755.
- */
+require_once __DIR__ . '/../lang.php';
+$strings = radicale_language();
+$escape = static function (string $value): string {
+    return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+};
 ?>
 <div style="max-width:640px">
-  <h2>Radicale CalDAV/CardDAV</h2>
-  <p>This plugin gives every mailbox (<code>user@domain.tld</code>) a
-     CalDAV/CardDAV account, authenticated directly against Dovecot --
-     same login as email, no separate password.</p>
+  <h2><?= $escape($strings['admin_title']) ?></h2>
+  <p><?= $strings['admin_intro'] ?></p>
 
-  <h3>End users</h3>
-  <p>Regular DirectAdmin users find their calendar/contacts URLs under
-     their own <strong>Calendar &amp; Contacts</strong> tab
+  <h3><?= $escape($strings['admin_users']) ?></h3>
+  <p><?= $escape($strings['admin_users_text']) ?>
      (<code>/CMD_PLUGINS/radicale_dav</code>).</p>
 
-  <h3>Admin reference</h3>
+  <h3><?= $escape($strings['admin_reference']) ?></h3>
   <table cellpadding="4">
-    <tr><td>Radicale config</td><td><code>/etc/radicale/config</code></td></tr>
-    <tr><td>Collections storage</td><td><code>/var/lib/radicale/collections</code></td></tr>
-    <tr><td>Service</td><td><code>systemctl status radicale</code></td></tr>
-    <tr><td>Cleanup hook</td><td><code>/usr/local/directadmin/scripts/custom/email_destroy_post.sh</code></td></tr>
-    <tr><td>Reverse proxy</td><td>every domain's own <code>/caldav</code> (see <code>config/apache-vhost-template-snippet.conf</code>)</td></tr>
+    <tr><td><?= $escape($strings['admin_config']) ?></td><td><code>/etc/radicale/config</code></td></tr>
+    <tr><td><?= $escape($strings['admin_storage']) ?></td><td><code>/var/lib/radicale/collections</code></td></tr>
+    <tr><td><?= $escape($strings['admin_service']) ?></td><td><code>systemctl status radicale</code></td></tr>
+    <tr><td><?= $escape($strings['admin_cleanup']) ?></td><td><code>/usr/local/directadmin/scripts/custom/email_destroy_post.sh</code></td></tr>
+    <tr><td><?= $escape($strings['admin_proxy']) ?></td><td>every domain's own <code>/caldav</code></td></tr>
   </table>
 </div>
