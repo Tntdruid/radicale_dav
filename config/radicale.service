@@ -7,10 +7,9 @@ PartOf=dovecot.service
 Type=simple
 User=radicale
 Group=radicale
-# Dovecot's auth-client socket is normally only readable by root/dovecot;
-# add the 'radicale' user to whatever group owns that socket, e.g.:
-#   usermod -aG dovecot radicale
-SupplementaryGroups=dovecot
+# Radicale reads Dovecot's dedicated auth-client-radicale socket via its
+# own "radicale" group -- see README.md for the required Dovecot-side
+# unix_listener block. Do not add "radicale" to Dovecot's own group.
 ExecStart=/usr/bin/env python3 -m radicale --config /etc/radicale/config
 Restart=on-failure
 

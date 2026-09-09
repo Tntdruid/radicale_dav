@@ -11,14 +11,15 @@ hosts = 127.0.0.1:5232
 
 [auth]
 type = dovecot
-# Default Dovecot auth-client socket. Confirm the real path on your box
-# with: doveconf -a | grep -A2 'service auth '  (look for the "client"
-# unix_listener under it). DA-managed Dovecot commonly uses this path,
-# but versions/distros vary.
+# DirectAdmin's default auth-client socket is usually mode 0600, owned
+# by dovecot, group root -- unreadable by any other group. Add a
+# dedicated "unix_listener auth-client-radicale { mode = 0660 user =
+# dovecot group = radicale }" inside Dovecot's "service auth {}" block
+# instead of loosening the shared socket. See README.md.
 dovecot_connection_type = AF_UNIX
-dovecot_socket = /var/run/dovecot/auth-client
-# The radicale service user must be able to read/write that socket --
-# usually by adding it to Dovecot's socket group. See README.md.
+dovecot_socket = /var/run/dovecot/auth-client-radicale
+# The radicale service user must be able to read/write that socket.
+# See README.md.
 
 [rights]
 # Each mailbox can only see its own collections at /user@domain.tld/.

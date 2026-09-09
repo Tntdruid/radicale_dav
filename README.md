@@ -43,17 +43,41 @@ connects with valid Dovecot credentials.
    mkdir -p /var/lib/radicale/collections
    chown -R radicale:radicale /var/lib/radicale/collections
    ```
-2. Find your real Dovecot auth-client socket path and group:
+2. Check the existing Dovecot auth-client socket:
    ```
    doveconf -a | grep -A3 'service auth '
+   ls -l /var/run/dovecot/auth-client
    ```
-   Look for a `unix_listener .../auth-client { ... group = ... }` block.
-   Update `dovecot_socket` in `config/radicale-config` if it differs
-   from `/var/run/dovecot/auth-client`.
-3. Let Radicale read that socket:
+   On DirectAdmin boxes this socket is commonly `mode 0600, user
+   dovecot, group root` -- not readable by any group, so adding
+   `radicale` to a group does nothing. Do not loosen that socket; it is
+   normally reserved for the mail stack (Postfix/Exim SMTP AUTH).
+   Instead add a second, dedicated listener. Dovecot merges `service {
+   }` blocks across all included config files, so put this in its own
+   new file, e.g. `/etc/dovecot/conf.d/99-radicale.conf` -- do **not**
+   add it to a DirectAdmin-managed file such as
+   `/etc/dovecot/service.conf` or `conf.d/10-master.conf`, since
+   `da build dovecot`/`./build dovecot`/panel updates can silently
+   overwrite those and drop your change (this is the same pattern
+   DirectAdmin's own docs use for custom Dovecot config, e.g.
+   `conf.d/99-trusted-ips.conf`):
    ```
-   usermod -aG <the-group-from-step-2> radicale
+   service auth {
+     unix_listener auth-client-radicale {
+       mode = 0660
+       user = dovecot
+       group = radicale
+     }
+   }
    ```
+   Confirm `dovecot.conf` actually includes `conf.d/*.conf` (check for
+   `!include_try conf.d/*.conf`), then `systemctl restart dovecot` and
+   `doveconf -a | grep -A3 auth-client-radicale` to confirm it merged in.
+   Then `systemctl restart dovecot` and set `dovecot_socket` in
+   `config/radicale-config` to `/var/run/dovecot/auth-client-radicale`.
+3. Radicale connects as user `radicale`, which is already in the
+   `radicale` group from step 1 -- no extra `usermod` is needed since
+   the dedicated listener grants that group access directly.
 4. Copy `config/radicale-config` to `/etc/radicale/config`.
 5. Copy `config/radicale.service` to
    `/etc/systemd/system/radicale.service`, then:
