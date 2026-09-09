@@ -1,6 +1,7 @@
 [Unit]
 Description=Radicale CalDAV/CardDAV server
 After=network.target dovecot.service
+PartOf=dovecot.service
 
 [Service]
 Type=simple

@@ -64,6 +64,10 @@ connects with valid Dovecot credentials.
   Radicale 3.7 or newer is required for the built-in sharing manager.
   After changing `/etc/radicale/config`, restart it with
   `systemctl restart radicale`.
+  The service is tied to `dovecot.service`, so restarting Dovecot also
+  restarts Radicale and reconnects its authentication socket. After updating
+  the service unit, run `systemctl daemon-reload` and
+  `systemctl restart radicale` once.
 6. Test dovecot auth directly, hitting Radicale locally, before wiring
    up Apache at all:
    ```
