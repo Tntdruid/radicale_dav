@@ -13,6 +13,7 @@ DA_CUSTOM=/usr/local/directadmin/scripts/custom
 echo "==> Setting permissions"
 chmod 755 "$PLUGIN_DIR/admin/index.html"
 chmod 755 "$PLUGIN_DIR/user/index.html"
+chmod 755 "$PLUGIN_DIR/scripts/"*.sh
 chmod 644 "$PLUGIN_DIR/hooks/"*.html
 chmod 755 "$PLUGIN_DIR/da-hooks/"*.sh
 
@@ -29,9 +30,7 @@ fi
 
 echo
 echo "==> Remaining manual steps (see README.md):"
-echo "    1. Install Radicale + point it at Dovecot's auth socket."
-echo "    2. Add 'radicale' user to the group that owns that socket."
-echo "    3. Edit user/index.html: set \$BASE_URL to your real hostname."
-echo "    4. Add the Apache reverse-proxy vhost and reload Apache."
-echo "    5. Start/enable the radicale service."
+echo "    1. Run ./scripts/update.sh as root to install Radicale and start its service."
+echo "    2. Edit user/index.html: set \$BASE_URL to your real hostname."
+echo "    3. Add the Apache reverse-proxy vhost and reload Apache."
 echo "Done."

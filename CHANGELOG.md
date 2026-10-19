@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-09-26
+
+- Refresh the DirectAdmin admin and user pages with responsive, panel-style UI.
+- Show Radicale's local TCP availability on the admin page.
+- Use a stable per-mailbox collection-list URL instead of assuming the default
+  calendar exists, and clarify the URL behavior in Danish and English.
+- Keep the user page rendering if its translation file lacks the collection
+  heading key.
+- Add a Radicale update check to the admin page, reading request data from
+  DirectAdmin's CLI environment so the button works.
+- Add `scripts/update.sh` to install/update Radicale in a service-owned
+  virtualenv.
+
 ## 2026-09-09
 
 - Restart Radicale automatically when `dovecot.service` is restarted, so the

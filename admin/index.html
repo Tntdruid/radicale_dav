@@ -5,21 +5,172 @@ $strings = radicale_language();
 $escape = static function (string $value): string {
     return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 };
+$radicale_socket = false;
+$radicale_is_up = null;
+$radicale_update = null;
+if (function_exists('fsockopen')) {
+  $radicale_socket = @fsockopen('127.0.0.1', 5232, $radicale_errno, $radicale_error, 1);
+  $radicale_is_up = is_resource($radicale_socket);
+  if ($radicale_is_up) {
+    fclose($radicale_socket);
+  }
+}
+// DirectAdmin runs plugins via the PHP CLI, so request data arrives in
+// environment variables instead of $_GET/$_POST.
+parse_str((string) getenv('QUERY_STRING'), $radicale_query);
+parse_str((string) getenv('POST'), $radicale_post);
+$radicale_request = array_merge($radicale_query, $radicale_post, $_GET, $_POST);
+if (isset($radicale_request['check_radicale_update'])) {
+  if (!function_exists('shell_exec') || !filter_var((string) ini_get('allow_url_fopen'), FILTER_VALIDATE_BOOLEAN)) {
+    $radicale_update = array('status' => 'unavailable');
+  } else {
+    $radicale_python = '/opt/radicale-dav/venv/bin/python';
+    if (!is_executable($radicale_python)) {
+      $radicale_python = 'python3';
+    }
+    $installed_output = @shell_exec(escapeshellarg($radicale_python) . ' -c ' . escapeshellarg('from importlib.metadata import version; print(version("Radicale"))') . ' 2>/dev/null');
+    $installed_version = trim((string) $installed_output);
+    $http_context = stream_context_create(array('http' => array(
+      'timeout' => 5,
+      'header' => "Accept: application/vnd.github+json\r\nUser-Agent: radicale-dav-admin\r\nX-GitHub-Api-Version: 2022-11-28\r\n",
+    )));
+    $github_response = @file_get_contents('https://api.github.com/repos/Kozea/Radicale/releases/latest', false, $http_context);
+    $github_data = is_string($github_response) ? json_decode($github_response, true) : null;
+    $latest_tag = is_array($github_data) ? (string) ($github_data['tag_name'] ?? '') : '';
+    $latest_version = preg_replace('/^v/i', '', $latest_tag);
+    $release_url = is_array($github_data) ? (string) ($github_data['html_url'] ?? '') : '';
+
+    if ($installed_version === '' || $latest_version === '' || $release_url === '') {
+      $radicale_update = array('status' => 'unavailable');
+    } else {
+      $radicale_update = array(
+        'status' => version_compare($latest_version, $installed_version, '>') ? 'available' : 'current',
+        'installed' => $installed_version,
+        'latest' => $latest_version,
+        'release_url' => $release_url,
+      );
+    }
+  }
+}
 ?>
-<div style="max-width:640px">
-  <h2><?= $escape($strings['admin_title']) ?></h2>
-  <p><?= $strings['admin_intro'] ?></p>
+<style>
+  .radicale-admin {
+    --radicale-blue: #1675b9;
+    --radicale-border: #dce3e9;
+    --radicale-muted: #657482;
+    max-width: 920px;
+    color: #263746;
+    font: inherit;
+  }
+  .radicale-admin * { box-sizing: border-box; }
+  .radicale-admin__header {
+    padding: 20px 22px;
+    border: 1px solid var(--radicale-border);
+    border-top: 3px solid var(--radicale-blue);
+    background: #fff;
+  }
+  .radicale-admin__eyebrow {
+    margin: 0 0 6px;
+    color: var(--radicale-blue);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .radicale-admin h2 { margin: 0; font-size: 21px; font-weight: 600; }
+  .radicale-admin__intro { max-width: 760px; margin: 8px 0 0; color: var(--radicale-muted); line-height: 1.55; }
+  .radicale-admin__section { margin-top: 18px; border: 1px solid var(--radicale-border); background: #fff; }
+  .radicale-admin__section h3 { margin: 0; padding: 13px 16px; border-bottom: 1px solid var(--radicale-border); font-size: 14px; font-weight: 600; }
+  .radicale-admin__note { margin: 0; padding: 15px 16px; line-height: 1.5; }
+  .radicale-admin__update { padding: 14px 16px; }
+  .radicale-admin__update p { margin: 0 0 10px; line-height: 1.5; }
+  .radicale-admin__update form { margin: 0; }
+  .radicale-admin__update-result { margin-top: 12px !important; }
+  .radicale-admin__status-line { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0; padding: 13px 16px; }
+  .radicale-admin__status-detail { color: var(--radicale-muted); }
+  .radicale-admin__status-badge { display: inline-flex; align-items: center; gap: 8px; padding: 5px 9px; border: 1px solid; border-radius: 3px; font-weight: 600; white-space: nowrap; }
+  .radicale-admin__status-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+  .radicale-admin__status-badge--up { border-color: #b8ddc5; background: #eff8f1; color: #247443; }
+  .radicale-admin__status-badge--down { border-color: #e8c1bf; background: #fff3f2; color: #a3322d; }
+  .radicale-admin__status-badge--unknown { border-color: #dce3e9; background: #f5f7f9; color: #657482; }
+  .radicale-admin__note code,
+  .radicale-admin__table code { color: #34495a; font-size: 12px; overflow-wrap: anywhere; }
+  .radicale-admin__table { width: 100%; border-collapse: collapse; }
+  .radicale-admin__table td { padding: 11px 16px; border-bottom: 1px solid #edf0f3; vertical-align: top; }
+  .radicale-admin__table tr:last-child td { border-bottom: 0; }
+  .radicale-admin__table td:first-child { width: 29%; color: #526372; font-weight: 600; }
+  @media (max-width: 600px) {
+    .radicale-admin__header { padding: 17px; }
+    .radicale-admin__status-line { align-items: flex-start; flex-direction: column; }
+    .radicale-admin__table td { display: block; width: 100%; padding: 8px 14px; }
+    .radicale-admin__table td:first-child { width: 100%; padding-bottom: 0; }
+    .radicale-admin__table td + td { padding-top: 4px; }
+  }
+</style>
+<div class="radicale-admin">
+  <header class="radicale-admin__header">
+    <p class="radicale-admin__eyebrow">DirectAdmin plugin</p>
+    <h2><?= $escape($strings['admin_title']) ?></h2>
+    <p class="radicale-admin__intro"><?= $strings['admin_intro'] ?></p>
+  </header>
 
-  <h3><?= $escape($strings['admin_users']) ?></h3>
-  <p><?= $escape($strings['admin_users_text']) ?>
-     (<code>/CMD_PLUGINS/radicale_dav</code>).</p>
+  <section class="radicale-admin__section">
+    <h3><?= $escape($strings['admin_status']) ?></h3>
+    <p class="radicale-admin__status-line">
+      <?php if ($radicale_is_up === true): ?>
+        <span class="radicale-admin__status-badge radicale-admin__status-badge--up" role="status"><span class="radicale-admin__status-dot" aria-hidden="true"></span><?= $escape($strings['admin_status_up']) ?></span>
+      <?php elseif ($radicale_is_up === false): ?>
+        <span class="radicale-admin__status-badge radicale-admin__status-badge--down" role="status"><span class="radicale-admin__status-dot" aria-hidden="true"></span><?= $escape($strings['admin_status_down']) ?></span>
+      <?php else: ?>
+        <span class="radicale-admin__status-badge radicale-admin__status-badge--unknown" role="status"><?= $escape($strings['admin_status_unknown']) ?></span>
+      <?php endif; ?>
+      <span class="radicale-admin__status-detail"><?= $escape($strings['admin_status_detail']) ?> <code>127.0.0.1:5232</code></span>
+    </p>
+  </section>
 
-  <h3><?= $escape($strings['admin_reference']) ?></h3>
-  <table cellpadding="4">
-    <tr><td><?= $escape($strings['admin_config']) ?></td><td><code>/etc/radicale/config</code></td></tr>
-    <tr><td><?= $escape($strings['admin_storage']) ?></td><td><code>/var/lib/radicale/collections</code></td></tr>
-    <tr><td><?= $escape($strings['admin_service']) ?></td><td><code>systemctl status radicale</code></td></tr>
-    <tr><td><?= $escape($strings['admin_cleanup']) ?></td><td><code>/usr/local/directadmin/scripts/custom/email_destroy_post.sh</code></td></tr>
-    <tr><td><?= $escape($strings['admin_proxy']) ?></td><td>every domain's own <code>/caldav</code></td></tr>
-  </table>
+  <section class="radicale-admin__section">
+    <h3><?= $escape($strings['admin_update']) ?></h3>
+    <div class="radicale-admin__update">
+      <p><?= $escape($strings['admin_update_text']) ?></p>
+      <form method="get">
+        <button type="submit" name="check_radicale_update" value="1"><?= $escape($strings['admin_update_check']) ?></button>
+      </form>
+      <?php if (is_array($radicale_update)): ?>
+        <?php if ($radicale_update['status'] === 'unavailable'): ?>
+          <p class="radicale-admin__update-result" role="status"><?= $escape($strings['admin_update_unavailable']) ?></p>
+        <?php else: ?>
+          <p class="radicale-admin__update-result" role="status">
+            <?= $escape($strings['admin_update_installed']) ?> <code><?= $escape($radicale_update['installed']) ?></code>.
+            <?= $escape($strings['admin_update_latest']) ?> <code><?= $escape($radicale_update['latest']) ?></code>.
+            <?= $escape($strings[$radicale_update['status'] === 'available' ? 'admin_update_available' : 'admin_update_current']) ?>
+          </p>
+          <p><a href="<?= $escape($radicale_update['release_url']) ?>" target="_blank" rel="noopener"><?= $escape($strings['admin_update_release']) ?></a></p>
+          <?php if ($radicale_update['status'] === 'available'): ?>
+            <p><?= $escape($strings['admin_update_ssh']) ?></p>
+            <pre><code>cd /usr/local/directadmin/plugins/radicale_dav
+./scripts/update.sh</code></pre>
+          <?php endif; ?>
+        <?php endif; ?>
+      <?php endif; ?>
+    </div>
+  </section>
+
+  <section class="radicale-admin__section">
+    <h3><?= $escape($strings['admin_users']) ?></h3>
+    <p class="radicale-admin__note"><?= $escape($strings['admin_users_text']) ?>
+      (<code>/CMD_PLUGINS/radicale_dav</code>).</p>
+  </section>
+
+  <section class="radicale-admin__section">
+    <h3><?= $escape($strings['admin_reference']) ?></h3>
+    <table class="radicale-admin__table">
+      <tbody>
+        <tr><td><?= $escape($strings['admin_config']) ?></td><td><code>/etc/radicale/config</code></td></tr>
+        <tr><td><?= $escape($strings['admin_storage']) ?></td><td><code>/var/lib/radicale/collections</code></td></tr>
+        <tr><td><?= $escape($strings['admin_service']) ?></td><td><code>systemctl status radicale</code></td></tr>
+        <tr><td><?= $escape($strings['admin_cleanup']) ?></td><td><code>/usr/local/directadmin/scripts/custom/email_destroy_post.sh</code></td></tr>
+        <tr><td><?= $escape($strings['admin_proxy']) ?></td><td>every domain's own <code>/caldav</code></td></tr>
+      </tbody>
+    </table>
+  </section>
 </div>
