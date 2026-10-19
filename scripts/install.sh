@@ -3,7 +3,7 @@
 # /usr/local/directadmin/plugins/radicale_dav/
 #
 #   cd /usr/local/directadmin/plugins/radicale_dav
-#   ./scripts/install.sh
+#   sh scripts/install.sh
 
 set -e
 
@@ -30,7 +30,6 @@ fi
 
 echo
 echo "==> Remaining manual steps (see README.md):"
-echo "    1. Run ./scripts/update.sh as root to install Radicale and start its service."
-echo "    2. Edit user/index.html: set \$BASE_URL to your real hostname."
-echo "    3. Add the Apache reverse-proxy vhost and reload Apache."
+echo "    - Add the Apache /caldav and /carddav proxy template and run ./build rewrite_confs."
+echo "    - Run sh scripts/update.sh as root to install Radicale and start its service."
 echo "Done."

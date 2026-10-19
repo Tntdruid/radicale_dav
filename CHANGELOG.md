@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-19
+
+- Rewrite the README install guide: requirements, clone-first order,
+  copy-paste commands, and a new Updating section.
+- Remove the stale `$BASE_URL` step from `scripts/install.sh`.
+- Mark the plugin scripts and pages executable in git.
+
 ## 2026-09-26
 
 - Refresh the DirectAdmin admin and user pages with responsive, panel-style UI.

@@ -34,15 +34,36 @@ connects with valid Dovecot credentials.
   security — Dovecot no longer authenticating the mailbox is what
   actually locks it out — this just tidies up disk space).
 
+## Requirements
+
+- DirectAdmin with Dovecot and Apache (`mod_proxy`, `mod_proxy_http` and
+  `mod_headers` enabled; check with `httpd -M | grep -E 'proxy|headers'`).
+- systemd, `runuser`, and `python3` with the `venv` module (on
+  Debian/Ubuntu install `python3-venv`).
+- Outbound HTTPS from the server to `api.github.com` and `github.com`.
+- For the admin page's update check: DirectAdmin's PHP must allow
+  `shell_exec` and `allow_url_fopen`. The check is optional; updates
+  themselves always run over SSH.
+
 ## Install
 
-1. **Create the Radicale service user and storage**:
+All steps run as root.
+
+1. **Put the plugin in place**:
+   ```
+   git clone https://github.com/Tntdruid/radicale_dav.git /usr/local/directadmin/plugins/radicale_dav
+   cd /usr/local/directadmin/plugins/radicale_dav
+   ```
+   (Or copy this directory to `/usr/local/directadmin/plugins/radicale_dav/`.)
+   All later paths are relative to this directory.
+2. **Create the Radicale service user and storage**:
    ```
    useradd --system --user-group --home-dir / --shell /sbin/nologin radicale
    mkdir -p /var/lib/radicale/collections
    chown -R radicale:radicale /var/lib/radicale/collections
    ```
-2. Check the existing Dovecot auth-client socket:
+3. **Give Radicale its own Dovecot auth socket.** Check the existing
+   auth-client socket:
    ```
    doveconf -a | grep -A3 'service auth '
    ls -l /var/run/dovecot/auth-client
@@ -69,61 +90,79 @@ connects with valid Dovecot credentials.
      }
    }
    ```
-   Confirm `dovecot.conf` actually includes `conf.d/*.conf` (check for
-   `!include_try conf.d/*.conf`), then `systemctl restart dovecot` and
-   `doveconf -a | grep -A3 auth-client-radicale` to confirm it merged in.
-   Then `systemctl restart dovecot` and set `dovecot_socket` in
-   `config/radicale-config` to `/var/run/dovecot/auth-client-radicale`.
-3. Radicale connects as user `radicale`, which is already in the
-   `radicale` group from step 1 -- no extra `usermod` is needed since
-   the dedicated listener grants that group access directly.
-4. Copy `config/radicale-config` to `/etc/radicale/config`.
-5. Copy `config/radicale.service` to
-   `/etc/systemd/system/radicale.service`, then:
+   Confirm `dovecot.conf` includes `conf.d/*.conf` (look for
+   `!include_try conf.d/*.conf`), then:
    ```
+   systemctl restart dovecot
+   doveconf -a | grep -A3 auth-client-radicale
+   ls -l /var/run/dovecot/auth-client-radicale
+   ```
+   The `radicale` user is already in the `radicale` group from step 2,
+   so no `usermod` is needed. `config/radicale-config` already points
+   `dovecot_socket` at `/var/run/dovecot/auth-client-radicale`.
+4. **Install the Radicale config and service unit**:
+   ```
+   mkdir -p /etc/radicale
+   cp config/radicale-config /etc/radicale/config
+   cp config/radicale.service /etc/systemd/system/radicale.service
    systemctl daemon-reload
    ```
-  Do not start the service yet. The update script creates the virtualenv,
-  installs Radicale as the `radicale` user, and starts the service.
-  Radicale 3.7 or newer is required for the built-in sharing manager.
-  After changing `/etc/radicale/config`, restart it with
-  `systemctl restart radicale`.
-  The service is tied to `dovecot.service`, so restarting Dovecot also
-  restarts Radicale and reconnects its authentication socket. After updating
-  the service unit, run `systemctl daemon-reload` and
-  `systemctl restart radicale` once.
-6. **Add `/caldav` and `/carddav` to every domain's vhost** — copy the
-  appropriate files from `config/` into DirectAdmin's custom template
-  directory:
-  - `virtual_host2_secure.conf.CUSTOM.post` for HTTPS vhosts (recommended).
-  - `virtual_host2.conf.CUSTOM.post` only when the HTTP vhost redirects to
-    HTTPS before authentication. Do not expose Basic Auth over plain HTTP.
+   Do not start the service yet; step 7 does that. The service is tied
+   to `dovecot.service`, so restarting Dovecot also restarts Radicale
+   and reconnects its authentication socket.
+5. **Add `/caldav` and `/carddav` to every domain's vhost** — copy the
+   proxy fragment into DirectAdmin's custom template directory:
+   ```
+   mkdir -p /usr/local/directadmin/data/templates/custom
+   cp config/virtual_host2_secure.conf.CUSTOM.post /usr/local/directadmin/data/templates/custom/
+   ```
+   Only use `virtual_host2.conf.CUSTOM.post` (the HTTP vhost) when HTTP
+   redirects to HTTPS before authentication. Do not expose Basic Auth
+   over plain HTTP. Then rebuild and reload Apache:
+   ```
+   (cd /usr/local/directadmin/custombuild && ./build rewrite_confs)
+   ```
+6. **Run the plugin installer** — sets permissions and links the
+   optional cleanup hook:
+   ```
+   sh scripts/install.sh
+   ```
+7. **Install Radicale and start it**:
+   ```
+   sh scripts/update.sh
+   ```
+   It fetches the latest official Radicale GitHub release, installs it
+   into `/opt/radicale-dav/venv` as the `radicale` user, adds a systemd
+   drop-in (`radicale.service.d/90-radicale-dav-venv.conf`) so the
+   service uses that virtualenv, and enables/restarts the service.
+   Radicale itself runs as the unprivileged `radicale` user. Radicale
+   3.7 or newer is required for the built-in sharing manager.
+8. **Test Dovecot auth directly**, hitting Radicale locally:
+   ```
+   curl -u alice@example.com:mailpassword http://127.0.0.1:5232/alice@example.com/
+   ```
+   Confirm it returns something other than 401.
+9. **Test through Apache.** Confirm the "Calendar & Contacts" tab
+   appears for a test DA user, and that entering a real mailbox address
+   there produces a URL a CalDAV client (or `curl -u`) can authenticate
+   against:
+   ```
+   curl -u alice@example.com:mailpassword https://example.com/caldav/alice@example.com/
+   ```
 
-  Then run `./build rewrite_confs` from
-  `/usr/local/directadmin/custombuild` and reload Apache. Requires
-  `mod_proxy`, `mod_proxy_http`, and `mod_headers` — check with
-  `httpd -M | grep -E 'proxy|headers'`.
-7. Copy this whole directory to
-   `/usr/local/directadmin/plugins/radicale_dav/`.
-8. Run `./scripts/install.sh` as root — sets permissions and symlinks
-  the optional cleanup hook.
-9. Run `./scripts/update.sh` as root. It fetches the latest official
-  GitHub release, installs it into `/opt/radicale-dav/venv` as the
-  `radicale` user, configures a systemd drop-in to use that virtualenv,
-  and enables/restarts the service. Radicale itself continues running
-  as the unprivileged `radicale` user. The same script can be run again
-  for later updates.
-10. Test Dovecot auth directly, hitting Radicale locally:
+## Updating
+
+- **Radicale**: the admin page's "Check for updates" button shows the
+  installed and latest version. To update, run as root:
   ```
-  curl -u alice@example.com:mailpassword http://127.0.0.1:5232/alice@example.com/
+  cd /usr/local/directadmin/plugins/radicale_dav
+  sh scripts/update.sh
   ```
-  Confirm it returns something other than 401.
-11. Confirm the "Calendar & Contacts" tab appears for a test DA user,
-    and that entering a real mailbox address there produces a URL a
-    CalDAV client (or `curl -u`) can actually authenticate against:
-    ```
-    curl -u alice@example.com:mailpassword https://example.com/caldav/alice@example.com/
-    ```
+- **The plugin**: `git pull` in the plugin directory (or copy the new
+  files over), then run `sh scripts/install.sh` again. If
+  `config/radicale.service` changed, copy it to `/etc/systemd/system/`,
+  run `systemctl daemon-reload` and `systemctl restart radicale`. After
+  changing `/etc/radicale/config`, run `systemctl restart radicale`.
 
 ## Files
 
@@ -138,7 +177,7 @@ scripts/install.sh              Run once after copying the plugin into place
 scripts/update.sh               Install/update Radicale in a service-owned virtualenv
 scripts/uninstall.sh            Removes the hook symlink (keeps calendar data)
 config/radicale-config                       /etc/radicale/config using dovecot auth
-config/radicale.service                      Systemd unit (joins the dovecot socket group)
+config/radicale.service                      Systemd unit (ExecStart overridden by update.sh drop-in)
 config/virtual_host2_secure.conf.CUSTOM.post HTTPS CalDAV/CardDAV proxy fragment
 config/virtual_host2.conf.CUSTOM.post        HTTP proxy fragment; use only with HTTPS redirect
 lang.php                                      Plugin translations (English and Danish)
@@ -171,9 +210,9 @@ hook text.
 - **Only accounts real mailboxes**, not the DirectAdmin panel login —
   by design. A DA user with no mailboxes has nothing to log into here
   yet.
-- **DA plugin lifecycle**: `scripts/install.sh`/`uninstall.sh` here are
-  meant to be run by hand once, not auto-invoked by DA's plugin
-  manager.
+- **DA plugin lifecycle**: `scripts/install.sh`, `update.sh` and
+  `uninstall.sh` are run by hand as root, not auto-invoked by DA's
+  plugin manager.
 - If `email_destroy_post.sh` already exists on your box for something
   else, `install.sh` won't overwrite it — merge the logic in by hand.
   Same goes for `virtual_host2_secure.conf` if you've already
