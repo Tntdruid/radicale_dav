@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-11-12
+
+- Add a fail2ban filter and jail that ban IPs after repeated failed
+  CalDAV/CardDAV logins (uses the client IP Apache appends to
+  `X-Forwarded-For`).
+- Admin page: add setup checks for the Dovecot socket, virtualenv, systemd
+  drop-in, storage, Apache proxy template and fail2ban jail, each with a
+  fix hint.
+- `scripts/update.sh` no longer reinstalls or restarts Radicale when the
+  latest release is already running; `--force` reinstalls anyway.
+- User page: add setup steps for iPhone/iPad/Mac, Thunderbird and Android
+  (DAVx⁵), and a downloadable Apple configuration profile.
+- README: document fail2ban and backups.
+
 ## 2026-10-19
 
 - Rewrite the README install guide: requirements, clone-first order,

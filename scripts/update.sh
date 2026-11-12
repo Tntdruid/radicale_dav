@@ -7,6 +7,13 @@ VENV_DIR=$VENV_ROOT/venv
 OVERRIDE_DIR=/etc/systemd/system/radicale.service.d
 OVERRIDE_FILE=$OVERRIDE_DIR/90-radicale-dav-venv.conf
 
+FORCE=0
+case "${1:-}" in
+    --force) FORCE=1 ;;
+    "") ;;
+    *) echo "Usage: $0 [--force]" >&2; exit 2 ;;
+esac
+
 fail() {
     echo "Error: $*" >&2
     exit 1
@@ -19,6 +26,7 @@ fi
 command -v runuser >/dev/null 2>&1 || fail "runuser is required."
 command -v systemctl >/dev/null 2>&1 || fail "systemctl is required."
 command -v install >/dev/null 2>&1 || fail "install is required."
+command -v cmp >/dev/null 2>&1 || fail "cmp is required."
 PYTHON=$(command -v python3) || fail "python3 is required."
 getent passwd "$SERVICE_USER" >/dev/null || fail "The '$SERVICE_USER' user does not exist."
 getent group "$SERVICE_USER" >/dev/null || fail "The '$SERVICE_USER' group does not exist."
@@ -54,8 +62,16 @@ print(tag)
     fail "Could not read the latest release from api.github.com."
 fi
 
-echo "==> Installing Radicale $RELEASE_TAG as $SERVICE_USER"
-runuser -u "$SERVICE_USER" -- "$VENV_DIR/bin/python" -m pip install --upgrade "https://github.com/Kozea/Radicale/archive/refs/tags/$RELEASE_TAG.tar.gz" || fail "Radicale installation failed."
+RELEASE_VERSION=${RELEASE_TAG#v}
+CURRENT_VERSION=$(runuser -u "$SERVICE_USER" -- "$VENV_DIR/bin/python" -c 'from importlib.metadata import version; print(version("Radicale"))' 2>/dev/null || true)
+CHANGED=0
+if [ "$FORCE" -eq 0 ] && [ -n "$CURRENT_VERSION" ] && [ "$CURRENT_VERSION" = "$RELEASE_VERSION" ]; then
+    echo "==> Radicale $CURRENT_VERSION is already the latest release"
+else
+    echo "==> Installing Radicale $RELEASE_TAG as $SERVICE_USER"
+    runuser -u "$SERVICE_USER" -- "$VENV_DIR/bin/python" -m pip install --upgrade "https://github.com/Kozea/Radicale/archive/refs/tags/$RELEASE_TAG.tar.gz" || fail "Radicale installation failed."
+    CHANGED=1
+fi
 
 if [ -e "$OVERRIDE_FILE" ] && ! grep -Fqx '# Managed by radicale_dav/scripts/update.sh' "$OVERRIDE_FILE"; then
     fail "$OVERRIDE_FILE already exists and is not managed by this plugin; merge the service override manually."
@@ -71,13 +87,23 @@ trap 'rm -f "$TEMP_OVERRIDE"' 0
         'ExecStart=' \
         "ExecStart=$VENV_DIR/bin/python -m radicale --config /etc/radicale/config"
 } > "$TEMP_OVERRIDE"
-chmod 0644 "$TEMP_OVERRIDE"
-chown root:root "$TEMP_OVERRIDE"
-mv -f "$TEMP_OVERRIDE" "$OVERRIDE_FILE"
+if [ -f "$OVERRIDE_FILE" ] && cmp -s "$TEMP_OVERRIDE" "$OVERRIDE_FILE"; then
+    rm -f "$TEMP_OVERRIDE"
+else
+    chmod 0644 "$TEMP_OVERRIDE"
+    chown root:root "$TEMP_OVERRIDE"
+    mv -f "$TEMP_OVERRIDE" "$OVERRIDE_FILE"
+    systemctl daemon-reload
+    CHANGED=1
+fi
 
-echo "==> Enabling and restarting the Radicale service"
-systemctl daemon-reload
-systemctl enable radicale
+systemctl enable --quiet radicale
+if [ "$CHANGED" -eq 0 ] && systemctl is-active --quiet radicale; then
+    echo "Radicale $CURRENT_VERSION is up to date and running; nothing to do. Use --force to reinstall."
+    exit 0
+fi
+
+echo "==> Restarting the Radicale service"
 if ! systemctl restart radicale; then
     systemctl --no-pager --full status radicale || true
     fail "Radicale did not start successfully. Check journalctl -u radicale."

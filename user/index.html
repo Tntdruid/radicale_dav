@@ -39,6 +39,30 @@ $escape = static function (string $value): string {
       </ol>
       <p><em><?= $escape($strings['share_note']) ?></em></p>
       <p><em><?= $escape($strings['app_note']) ?></em></p>
+
+      <h3><?= $escape($strings['clients_title']) ?></h3>
+      <details>
+        <summary><strong><?= $escape($strings['client_apple']) ?></strong></summary>
+        <p><a id="apple-profile" download="calendar-contacts.mobileconfig"><?= $escape($strings['apple_profile']) ?></a></p>
+        <p><?= $escape($strings['apple_profile_note']) ?></p>
+        <p><?= $escape($strings['apple_manual']) ?></p>
+      </details>
+      <details>
+        <summary><strong><?= $escape($strings['client_thunderbird']) ?></strong></summary>
+        <ol>
+          <li><?= $escape($strings['thunderbird_1']) ?></li>
+          <li><?= $escape($strings['thunderbird_2']) ?></li>
+          <li><?= $escape($strings['thunderbird_3']) ?></li>
+        </ol>
+      </details>
+      <details>
+        <summary><strong><?= $escape($strings['client_android']) ?></strong></summary>
+        <ol>
+          <li><?= $escape($strings['android_1']) ?></li>
+          <li><?= $escape($strings['android_2']) ?></li>
+          <li><?= $escape($strings['android_3']) ?></li>
+        </ol>
+      </details>
     </div>
 
     <script>
@@ -47,6 +71,63 @@ $escape = static function (string $value): string {
       var mailboxInput = document.getElementById('mailbox');
       var results = document.getElementById('radicale-results');
       var error = document.getElementById('radicale-error');
+      var appleProfile = document.getElementById('apple-profile');
+      var profileUrl = null;
+
+      function xml(value) {
+        return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+      }
+
+      function uuid() {
+        if (window.crypto && crypto.randomUUID) {
+          return crypto.randomUUID().toUpperCase();
+        }
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+          var r = Math.random() * 16 | 0;
+          return (c === 'x' ? r : (r & 3 | 8)).toString(16).toUpperCase();
+        });
+      }
+
+      // Unsigned Apple configuration profile with a CalDAV and a CardDAV
+      // account. No password is included; the device asks for it on install.
+      function accountPayload(kind, type, domain, mailbox, id) {
+        return '<dict>' +
+          '<key>' + kind + 'AccountDescription</key><string>' + xml(mailbox) + '</string>' +
+          '<key>' + kind + 'HostName</key><string>' + xml(domain) + '</string>' +
+          '<key>' + kind + 'Port</key><integer>443</integer>' +
+          '<key>' + kind + 'PrincipalURL</key><string>' + xml('/caldav/' + mailbox + '/') + '</string>' +
+          '<key>' + kind + 'UseSSL</key><true/>' +
+          '<key>' + kind + 'Username</key><string>' + xml(mailbox) + '</string>' +
+          '<key>PayloadIdentifier</key><string>' + xml(id + '.' + kind.toLowerCase()) + '</string>' +
+          '<key>PayloadType</key><string>' + type + '</string>' +
+          '<key>PayloadUUID</key><string>' + uuid() + '</string>' +
+          '<key>PayloadVersion</key><integer>1</integer>' +
+          '</dict>';
+      }
+
+      function setAppleProfile(domain, mailbox) {
+        var id = 'radicale-dav.' + domain + '.' + mailbox.replace(/[^A-Za-z0-9.-]/g, '-');
+        // '<' + '?' keeps PHP (short_open_tag) from treating this as a PHP tag.
+        var profile = '<' + '?xml version="1.0" encoding="UTF-8"?' + '>\n' +
+          '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n' +
+          '<plist version="1.0"><dict>' +
+          '<key>PayloadContent</key><array>' +
+          accountPayload('CalDAV', 'com.apple.caldav.account', domain, mailbox, id) +
+          accountPayload('CardDAV', 'com.apple.carddav.account', domain, mailbox, id) +
+          '</array>' +
+          '<key>PayloadDisplayName</key><string>' + xml(mailbox) + '</string>' +
+          '<key>PayloadIdentifier</key><string>' + xml(id) + '</string>' +
+          '<key>PayloadType</key><string>Configuration</string>' +
+          '<key>PayloadUUID</key><string>' + uuid() + '</string>' +
+          '<key>PayloadVersion</key><integer>1</integer>' +
+          '</dict></plist>\n';
+        if (profileUrl) {
+          URL.revokeObjectURL(profileUrl);
+        }
+        profileUrl = URL.createObjectURL(new Blob([profile], { type: 'application/x-apple-aspen-config' }));
+        appleProfile.href = profileUrl;
+        appleProfile.download = mailbox.replace(/[^A-Za-z0-9@.-]/g, '-') + '.mobileconfig';
+      }
 
       form.addEventListener('submit', function (event) {
         event.preventDefault();
@@ -73,6 +154,7 @@ $escape = static function (string $value): string {
         document.getElementById('addressbook-url').firstChild.textContent = addressbookUrl;
         document.getElementById('username').textContent = mailbox;
         document.getElementById('manager-url').href = baseUrl + '/.web/';
+        setAppleProfile(domain, mailbox);
         error.hidden = true;
         results.hidden = false;
       });

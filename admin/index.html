@@ -15,6 +15,51 @@ if (function_exists('fsockopen')) {
     fclose($radicale_socket);
   }
 }
+
+// Setup checks: each entry is array(label key, path, status, hint key).
+// Status is 'ok', 'fail' or 'warn' (optional or could not be verified).
+$radicale_checks = array();
+$dovecot_socket = '/var/run/dovecot/auth-client-radicale';
+if (!@file_exists($dovecot_socket)) {
+  $socket_status = array('fail', 'admin_hint_socket_missing');
+} elseif (@filetype($dovecot_socket) !== 'socket') {
+  $socket_status = array('fail', 'admin_hint_socket_type');
+} else {
+  $socket_group = @filegroup($dovecot_socket);
+  $socket_group_name = ($socket_group !== false && function_exists('posix_getgrgid')) ? (posix_getgrgid($socket_group)['name'] ?? '') : '';
+  if ($socket_group_name !== '' && $socket_group_name !== 'radicale') {
+    $socket_status = array('fail', 'admin_hint_socket_group');
+  } elseif ((@fileperms($dovecot_socket) & 0060) !== 0060) {
+    $socket_status = array('fail', 'admin_hint_socket_mode');
+  } else {
+    $socket_status = array('ok', '');
+  }
+}
+$radicale_checks[] = array('admin_check_socket', $dovecot_socket, $socket_status[0], $socket_status[1]);
+
+$venv_python = '/opt/radicale-dav/venv/bin/python';
+$radicale_checks[] = array('admin_check_venv', $venv_python, @is_executable($venv_python) ? 'ok' : 'fail', 'admin_hint_run_update');
+
+$venv_dropin = '/etc/systemd/system/radicale.service.d/90-radicale-dav-venv.conf';
+$radicale_checks[] = array('admin_check_dropin', $venv_dropin, @is_file($venv_dropin) ? 'ok' : 'fail', 'admin_hint_run_update');
+
+$storage_dir = '/var/lib/radicale/collections';
+$radicale_checks[] = array('admin_check_storage', $storage_dir, @is_dir($storage_dir) ? 'ok' : 'fail', 'admin_hint_storage');
+
+$proxy_template = '/usr/local/directadmin/data/templates/custom/virtual_host2_secure.conf.CUSTOM.post';
+if (!@file_exists($proxy_template)) {
+  $proxy_status = array('fail', 'admin_hint_proxy_missing');
+} elseif (!@is_readable($proxy_template)) {
+  $proxy_status = array('warn', 'admin_hint_unreadable');
+} elseif (strpos((string) @file_get_contents($proxy_template), '/caldav/') === false) {
+  $proxy_status = array('fail', 'admin_hint_proxy_block');
+} else {
+  $proxy_status = array('ok', '');
+}
+$radicale_checks[] = array('admin_check_proxy', $proxy_template, $proxy_status[0], $proxy_status[1]);
+
+$fail2ban_jail = '/etc/fail2ban/jail.d/radicale.conf';
+$radicale_checks[] = array('admin_check_fail2ban', $fail2ban_jail, @is_file($fail2ban_jail) ? 'ok' : 'warn', 'admin_hint_fail2ban');
 // DirectAdmin runs plugins via the PHP CLI, so request data arrives in
 // environment variables instead of $_GET/$_POST.
 parse_str((string) getenv('QUERY_STRING'), $radicale_query);
@@ -99,6 +144,8 @@ if (isset($radicale_request['check_radicale_update'])) {
   .radicale-admin__table td { padding: 11px 16px; border-bottom: 1px solid #edf0f3; vertical-align: top; }
   .radicale-admin__table tr:last-child td { border-bottom: 0; }
   .radicale-admin__table td:first-child { width: 29%; color: #526372; font-weight: 600; }
+  .radicale-admin__checks .radicale-admin__status-badge { margin-right: 8px; padding: 2px 7px; font-size: 12px; }
+  .radicale-admin__check-hint { margin-top: 6px; color: var(--radicale-muted); line-height: 1.45; }
   @media (max-width: 600px) {
     .radicale-admin__header { padding: 17px; }
     .radicale-admin__status-line { align-items: flex-start; flex-direction: column; }
@@ -126,6 +173,27 @@ if (isset($radicale_request['check_radicale_update'])) {
       <?php endif; ?>
       <span class="radicale-admin__status-detail"><?= $escape($strings['admin_status_detail']) ?> <code>127.0.0.1:5232</code></span>
     </p>
+  </section>
+
+  <section class="radicale-admin__section">
+    <h3><?= $escape($strings['admin_checks']) ?></h3>
+    <table class="radicale-admin__table radicale-admin__checks">
+      <tbody>
+        <?php foreach ($radicale_checks as $check): ?>
+          <?php $badge = array('ok' => 'up', 'fail' => 'down', 'warn' => 'unknown')[$check[2]]; ?>
+          <tr>
+            <td><?= $escape($strings[$check[0]]) ?></td>
+            <td>
+              <span class="radicale-admin__status-badge radicale-admin__status-badge--<?= $badge ?>"><span class="radicale-admin__status-dot" aria-hidden="true"></span><?= $escape($strings['admin_check_' . $check[2]]) ?></span>
+              <code><?= $escape($check[1]) ?></code>
+              <?php if ($check[2] !== 'ok' && $check[3] !== ''): ?>
+                <div class="radicale-admin__check-hint"><?= $escape($strings[$check[3]]) ?></div>
+              <?php endif; ?>
+            </td>
+          </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
   </section>
 
   <section class="radicale-admin__section">

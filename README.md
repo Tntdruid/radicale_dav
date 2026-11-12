@@ -21,10 +21,17 @@ connects with valid Dovecot credentials.
   existing domain and every domain created afterwards, automatically.
   `/.well-known/caldav` and `/.well-known/carddav` are also redirected
   to `/caldav/`, so clients that only need "domain.tld" find it themselves.
-- The plugin's user-level GUI page is a no-JavaScript URL builder — submit
-  your mailbox address and get your CalDAV/CardDAV URLs (derived from the
-  domain part of the address you submit — nothing to configure). No
+- The plugin's user-level GUI page is a URL builder — submit your mailbox
+  address and get your CalDAV/CardDAV URLs (derived from the domain part
+  of the address you submit — nothing to configure), plus setup steps for
+  iPhone/iPad/Mac, Thunderbird and Android (DAVx⁵). For Apple devices it
+  generates an unsigned `.mobileconfig` profile in the browser; the
+  profile holds no password, the device asks for it on install. No
   passwords touch this plugin at all.
+- The admin page shows whether Radicale is reachable, runs setup checks
+  (Dovecot socket owner/mode, virtualenv, systemd drop-in, storage, Apache
+  proxy template, fail2ban jail) with a fix hint for each problem, and can
+  check GitHub for a newer Radicale release.
 - The page also links to Radicale's built-in calendar manager. With Radicale
   3.7 or newer, users can create read-only map shares for other authenticated
   mailboxes without giving their password to this plugin; the recipient must
@@ -149,6 +156,24 @@ All steps run as root.
    ```
    curl -u alice@example.com:mailpassword https://example.com/caldav/alice@example.com/
    ```
+10. **Block password guessing (recommended).** CalDAV logins use the mail
+    password, so repeated failures should be banned. With fail2ban
+    installed:
+    ```
+    cp config/fail2ban-filter-radicale.conf /etc/fail2ban/filter.d/radicale.conf
+    cp config/fail2ban-jail-radicale.conf /etc/fail2ban/jail.d/radicale.conf
+    systemctl reload fail2ban
+    fail2ban-client status radicale
+    ```
+    The filter reads Radicale's `Failed login attempt` lines from the
+    journal and bans the client IP from `X-Forwarded-For` (the last entry,
+    which Apache adds; earlier entries can be forged). The default is 5
+    failures within 10 minutes → banned for 1 hour; adjust in the jail
+    file. On servers using CSF instead of fail2ban, add an equivalent
+    custom regex to CSF's `regex.custom.pm`.
+11. **Backups.** Make sure `/var/lib/radicale/collections` is included in
+    the server's backups (for example a JetBackup job). It holds every
+    mailbox's calendars and contacts as plain files.
 
 ## Updating
 
@@ -158,6 +183,9 @@ All steps run as root.
   cd /usr/local/directadmin/plugins/radicale_dav
   sh scripts/update.sh
   ```
+  If the latest release is already installed and the service is running,
+  the script exits without restarting anything. Use
+  `sh scripts/update.sh --force` to reinstall anyway.
 - **The plugin**: `git pull` in the plugin directory (or copy the new
   files over), then run `sh scripts/install.sh` again. If
   `config/radicale.service` changed, copy it to `/etc/systemd/system/`,
@@ -180,6 +208,8 @@ config/radicale-config                       /etc/radicale/config using dovecot 
 config/radicale.service                      Systemd unit (ExecStart overridden by update.sh drop-in)
 config/virtual_host2_secure.conf.CUSTOM.post HTTPS CalDAV/CardDAV proxy fragment
 config/virtual_host2.conf.CUSTOM.post        HTTP proxy fragment; use only with HTTPS redirect
+config/fail2ban-filter-radicale.conf         fail2ban filter for failed Radicale logins
+config/fail2ban-jail-radicale.conf           fail2ban jail (bans on http/https)
 lang.php                                      Plugin translations (English and Danish)
 ```
 
