@@ -107,9 +107,10 @@ $escape = static function (string $value): string {
 
       function setAppleProfile(domain, mailbox) {
         var id = 'radicale-dav.' + domain + '.' + mailbox.replace(/[^A-Za-z0-9.-]/g, '-');
-        // '<' + '?' keeps PHP (short_open_tag) from treating this as a PHP tag.
-        var profile = '<' + '?xml version="1.0" encoding="UTF-8"?' + '>\n' +
-          '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n' +
+        // \x3c keeps the XML prolog and doctype out of the page source, so
+        // neither PHP nor DirectAdmin's skin mistakes them for real markup.
+        var profile = '\x3c?xml version="1.0" encoding="UTF-8"?\x3e\n' +
+          '\x3c!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"\x3e\n' +
           '<plist version="1.0"><dict>' +
           '<key>PayloadContent</key><array>' +
           accountPayload('CalDAV', 'com.apple.caldav.account', domain, mailbox, id) +
