@@ -1,0 +1,4 @@
+# Files are deployed to Linux as-is (often copied from a Windows checkout),
+# so always use LF; a CRLF shebang makes DirectAdmin render a blank page.
+* text=auto eol=lf
+*.png binary
