@@ -24,7 +24,7 @@ connects with valid Dovecot credentials.
 - The plugin's user-level GUI page is a URL builder — submit your mailbox
   address and get your CalDAV/CardDAV URLs (derived from the domain part
   of the address you submit — nothing to configure), plus setup steps for
-  iPhone/iPad/Mac, Thunderbird and Android (DAVx⁵). For Apple devices it
+  iPhone/iPad/Mac, Thunderbird and Android (DAVx5). For Apple devices it
   generates an unsigned `.mobileconfig` profile in the browser; the
   profile holds no password, the device asks for it on install. No
   passwords touch this plugin at all.
