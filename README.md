@@ -1,3 +1,5 @@
+<img src="images/logo.svg" alt="" width="96" height="96">
+
 # radicale_dav — DirectAdmin ⇄ Radicale integration plugin (Dovecot auth)
 
 Every DirectAdmin **mailbox** (`user@domain.tld`) gets a CalDAV/CardDAV
@@ -136,7 +138,7 @@ All steps run as root.
    ```
 7. **Install Radicale and start it**:
    ```
-   sh scripts/update.sh
+   sh scripts/update_radicale.sh
    ```
    It fetches the latest official Radicale GitHub release, installs it
    into `/opt/radicale-dav/venv` as the `radicale` user, adds a systemd
@@ -181,16 +183,35 @@ All steps run as root.
   installed and latest version. To update, run as root:
   ```
   cd /usr/local/directadmin/plugins/radicale_dav
-  sh scripts/update.sh
+  sh scripts/update_radicale.sh
   ```
   If the latest release is already installed and the service is running,
   the script exits without restarting anything. Use
-  `sh scripts/update.sh --force` to reinstall anyway.
-- **The plugin**: `git pull` in the plugin directory (or copy the new
-  files over), then run `sh scripts/install.sh` again. If
+  `sh scripts/update_radicale.sh --force` to reinstall anyway.
+- **The plugin**: DirectAdmin's Plugin Manager checks
+  `version_url` from `plugin.conf` and shows when a new release is
+  available. Click **Update** there; DirectAdmin downloads the release
+  tarball and runs `scripts/update.sh`, which only re-applies permissions
+  (it never touches Radicale). Alternatively `git pull` in the plugin
+  directory (or copy the new files over), then run
+  `sh scripts/install.sh` again. If
   `config/radicale.service` changed, copy it to `/etc/systemd/system/`,
   run `systemctl daemon-reload` and `systemctl restart radicale`. After
   changing `/etc/radicale/config`, run `systemctl restart radicale`.
+
+### Publishing a plugin release
+
+1. Bump `version=` in `plugin.conf` and add a CHANGELOG entry.
+2. Commit, then tag and push the same version:
+   ```
+   git tag v2.1
+   git push origin master v2.1
+   ```
+3. The `Release` GitHub Action checks that the tag matches `plugin.conf`,
+   builds `radicale_dav.tar.gz` with `git archive` (`plugin.conf` at the
+   root, `.github` left out) and publishes it with `version.txt` as a
+   GitHub release. `plugin.conf` points DirectAdmin at the latest
+   release's files.
 
 ## Files
 
@@ -198,14 +219,17 @@ All steps run as root.
 plugin.conf                    DA plugin manifest
 hooks/user_txt.html            Menu link shown to end users
 hooks/admin_txt.html           Menu link shown to admin
+images/user_icon.svg            Menu icon (user level); admin_icon.svg for admin
+images/logo.svg                 Plugin logo
 admin/index.html                Admin-level info/reference page
 user/index.html                 GUI page: mailbox -> CalDAV/CardDAV URLs
 da-hooks/email_destroy_post.sh  Optional: purge a mailbox's calendar data on deletion
-scripts/install.sh              Run once after copying the plugin into place
-scripts/update.sh               Install/update Radicale in a service-owned virtualenv
+scripts/install.sh              Sets permissions and links the cleanup hook
+scripts/update.sh               Run by DA's Plugin Manager after a plugin update (calls install.sh)
+scripts/update_radicale.sh      Install/update Radicale in a service-owned virtualenv (by hand)
 scripts/uninstall.sh            Removes the hook symlink (keeps calendar data)
 config/radicale-config                       /etc/radicale/config using dovecot auth
-config/radicale.service                      Systemd unit (ExecStart overridden by update.sh drop-in)
+config/radicale.service                      Systemd unit (ExecStart overridden by update_radicale.sh drop-in)
 config/virtual_host2_secure.conf.CUSTOM.post HTTPS CalDAV/CardDAV proxy fragment
 config/virtual_host2.conf.CUSTOM.post        HTTP proxy fragment; use only with HTTPS redirect
 config/fail2ban-filter-radicale.conf         fail2ban filter for failed Radicale logins
@@ -240,9 +264,12 @@ hook text.
 - **Only accounts real mailboxes**, not the DirectAdmin panel login —
   by design. A DA user with no mailboxes has nothing to log into here
   yet.
-- **DA plugin lifecycle**: `scripts/install.sh`, `update.sh` and
-  `uninstall.sh` are run by hand as root, not auto-invoked by DA's
-  plugin manager.
+- **DA plugin lifecycle**: when the plugin is installed or updated
+  through DA's Plugin Manager, DA runs `scripts/install.sh`,
+  `scripts/update.sh` and `scripts/uninstall.sh` itself. When the
+  plugin is copied into place by hand, run `sh scripts/install.sh`
+  yourself. `scripts/update_radicale.sh` is never run by DA; it installs
+  or updates Radicale and is always run by hand.
 - If `email_destroy_post.sh` already exists on your box for something
   else, `install.sh` won't overwrite it — merge the logic in by hand.
   Same goes for `virtual_host2_secure.conf` if you've already

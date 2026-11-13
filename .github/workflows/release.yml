@@ -1,0 +1,38 @@
+# Builds the tarball DirectAdmin's plugin manager installs (see update_url
+# and version_url in plugin.conf). Push a tag matching plugin.conf's
+# version, e.g. "v2.1", to publish a release.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check tag matches plugin.conf version
+        run: |
+          version=$(sed -n 's/^version=//p' plugin.conf)
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match plugin.conf version $version" >&2
+            exit 1
+          fi
+          printf '%s' "$version" > version.txt
+
+      # git archive puts plugin.conf at the tarball root, as DirectAdmin
+      # expects, keeps the executable bits and honours export-ignore.
+      - name: Build tarball
+        run: git -c tar.umask=022 archive --format=tar.gz -o radicale_dav.tar.gz HEAD
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" radicale_dav.tar.gz version.txt \
+            --title "$GITHUB_REF_NAME" --notes "See CHANGELOG.md for changes."

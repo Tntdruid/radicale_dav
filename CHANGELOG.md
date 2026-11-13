@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.1 — 2026-11-13
+
+- Add a plugin logo and menu icons (`images/`).
+- Update the plugin from DirectAdmin's Plugin Manager: `plugin.conf` now
+  has `version_url`/`update_url`, and a GitHub Action publishes a release
+  tarball for each `v*` tag.
+- Rename the Radicale installer to `scripts/update_radicale.sh`;
+  `scripts/update.sh` is now DirectAdmin's post-update hook and only
+  re-applies permissions.
+- Always check out files with LF line endings (`.gitattributes`); a CRLF
+  shebang made the user page render blank.
+
 ## 2026-11-12
 
 - Add a fail2ban filter and jail that ban IPs after repeated failed

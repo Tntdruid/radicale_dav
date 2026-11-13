@@ -15,6 +15,7 @@ chmod 755 "$PLUGIN_DIR/admin/index.html"
 chmod 755 "$PLUGIN_DIR/user/index.html"
 chmod 755 "$PLUGIN_DIR/scripts/"*.sh
 chmod 644 "$PLUGIN_DIR/hooks/"*.html
+chmod 644 "$PLUGIN_DIR/images/"*.svg
 chmod 755 "$PLUGIN_DIR/da-hooks/"*.sh
 
 echo "==> Installing the OPTIONAL email_destroy_post.sh cleanup hook"
@@ -31,5 +32,5 @@ fi
 echo
 echo "==> Remaining manual steps (see README.md):"
 echo "    - Add the Apache /caldav and /carddav proxy template and run ./build rewrite_confs."
-echo "    - Run sh scripts/update.sh as root to install Radicale and start its service."
+echo "    - Run sh scripts/update_radicale.sh as root to install Radicale and start its service."
 echo "Done."

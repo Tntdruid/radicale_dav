@@ -2,3 +2,7 @@
 # so always use LF; a CRLF shebang makes DirectAdmin render a blank page.
 * text=auto eol=lf
 *.png binary
+
+# Left out of the release tarball that DirectAdmin installs.
+/.github export-ignore
+/.gitattributes export-ignore

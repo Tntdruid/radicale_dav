@@ -216,7 +216,7 @@ if (isset($radicale_request['check_radicale_update'])) {
           <?php if ($radicale_update['status'] === 'available'): ?>
             <p><?= $escape($strings['admin_update_ssh']) ?></p>
             <pre><code>cd /usr/local/directadmin/plugins/radicale_dav
-./scripts/update.sh</code></pre>
+sh scripts/update_radicale.sh</code></pre>
           <?php endif; ?>
         <?php endif; ?>
       <?php endif; ?>
